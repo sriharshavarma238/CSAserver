@@ -1,18 +1,18 @@
-const express= require("express");
+const express = require("express");
 
-const cors=require("cors");
+const cors = require("cors");
 
 
 
-const {Router}=express
+const { Router } = express
 
-const mongoose = require("mongoose"); 
+const mongoose = require("mongoose");
 
 const dotenv = require("dotenv");
 dotenv.config()
 
 
-const app=express();
+const app = express();
 
 app.use(express.json())
 app.use(cors({
@@ -28,37 +28,53 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors());
 
-const {userRouter}= require ("./routes/user.js")
-const {courseRouter}= require ("./routes/course.js")
-const {adminRouter}= require ("./routes/admin.js")
+const { userRouter } = require("./routes/user.js")
+const { courseRouter } = require("./routes/course.js")
+const { adminRouter } = require("./routes/admin.js")
 
 
 
-app.use("/user",userRouter);
-app.use("/course",courseRouter);
-app.use("/admin",adminRouter);
+app.use("/user", userRouter);
+app.use("/course", courseRouter);
+app.use("/admin", adminRouter);
 
+// MongoDB connection
+let isConnected = false;
 
+async function connectDB() {
+    if (isConnected) {
+        return;
+    }
 
-async function main(){
-    await mongoose.connect(process.env.MONGO_URL);
-    console.log("Connected to DB")
-    const port= process.env.PORT;
-    app.listen(port,()=>{
-        console.log("this server is running on",port)
-    })
+    try {
+        await mongoose.connect(process.env.MONGO_URL, {
+            tls: true,
+            tlsAllowInvalidCertificates: false,
+            serverSelectionTimeoutMS: 5000
+        });
+        isConnected = true;
+        console.log("Connected to DB");
+    } catch (error) {
+        console.error("MongoDB connection error:", error);
+        throw error;
+    }
 }
-main()
-// const {createAndCheckUser} =require("./routes/user")
 
-// const {checkCourses} = require("./routes/course")
+// For local development
+if (require.main === module) {
+    const port = process.env.PORT || 3000;
+    connectDB().then(() => {
+        app.listen(port, () => {
+            console.log("this server is running on", port);
+        });
+    });
+}
 
+// For Vercel serverless
+app.use(async (req, res, next) => {
+    await connectDB();
+    next();
+});
 
-// app.post("/user/purchaseCourse",function(req,res){
-    
-// })
-
-// app.get("/user/courses",function(req,res){
-    
-// })
-
+// Export for Vercel
+module.exports = app;
