@@ -40,7 +40,7 @@ userRouter.post("/signup",async function(req,res){
 
     
     const requiredbody = z.object({
-        email: z.string().min(3).max(100),
+        email: z.string().min(3).max(100).email(),
         firstName: z.string().min(3).max(100),
         lastName: z.string().min(3).max(100),
         password: z.string().min(3).max(30)
@@ -50,9 +50,9 @@ userRouter.post("/signup",async function(req,res){
     const parsedDataWithSuccess = requiredbody.safeParse(req.body)
 
     if(!parsedDataWithSuccess.success){
-        res.json({
+        return res.status(400).json({
             message:"Incorrect format",
-             error:parsedDataWithSuccess.error
+            error:parsedDataWithSuccess.error
         })
     }
 
@@ -63,9 +63,9 @@ userRouter.post("/signup",async function(req,res){
     const firstName = req.body.firstName;
     const lastName=req.body.lastName;
 
-    const hashedPassword =await bcrypt.hash(password,5)
-
     try{
+        const hashedPassword = await bcrypt.hash(password,5)
+
         await userModel.create({
             email,
             password:hashedPassword,
@@ -77,9 +77,19 @@ userRouter.post("/signup",async function(req,res){
             message: "You are signed up"
         })
     }catch(err){
-        console.log(err);
-        res.json({
-            message:"user already exists"
+        console.log("Error during signup:", err);
+        
+        // Check if it's a duplicate key error
+        if(err.code === 11000){
+            return res.status(400).json({
+                message:"User already exists"
+            })
+        }
+        
+        // For other errors, return detailed information
+        res.status(500).json({
+            message:"Error creating user",
+            error: err.message
         })
     }
 })
